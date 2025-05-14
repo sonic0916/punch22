@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ninja Training Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: black;
+      font-family: sans-serif;
+      color: white;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #222;
+    }
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div>Level: <span id="level">1</span></div>
+    <div>Lives: <span id="lives">3</span></div>
+    <div>Destroyed: <span id="destroyed">0</span>/10</div>
+  </div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <audio id="shootSound" src="https://freesound.org/data/previews/341/341695_626119-lq.mp3"></audio>
+  <audio id="hitSound" src="https://freesound.org/data/previews/320/320181_4939433-lq.mp3"></audio>
+  <audio id="gameOverSound" src="https://freesound.org/data/previews/331/331912_3248244-lq.mp3"></audio>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const levelDisplay = document.getElementById("level");
+    const livesDisplay = document.getElementById("lives");
+    const destroyedDisplay = document.getElementById("destroyed");
+    const shootSound = document.getElementById("shootSound");
+    const hitSound = document.getElementById("hitSound");
+    const gameOverSound = document.getElementById("gameOverSound");
+
+    const ninjaColors = ["white", "blue", "green", "yellow", "red"];
+
+    let ninja = {
+      x: 180,
+      y: 550,
+      width: 40,
+      height: 40,
+      colorIndex: 0,
+      hitCount: 0,
+      lives: 3
+    };
+
+    let projectiles = [];
+    let obstacles = [];
+    let destroyed = 0;
+    let level = 1;
+    let gameOver = false;
+
+    function drawNinja() {
+      ctx.fillStyle = ninjaColors[ninja.colorIndex];
+      ctx.fillRect(ninja.x, ninja.y, ninja.width, ninja.height);
+    }
+
+    function drawProjectile(proj) {
+      ctx.fillStyle = "cyan";
+      ctx.fillRect(proj.x, proj.y, 5, 15);
+    }
+
+    function drawObstacle(obs) {
+      ctx.fillStyle = "gray";
+      ctx.fillRect(obs.x, obs.y, 30, 30);
+    }
+
+    function fireProjectile() {
+      shootSound.currentTime = 0;
+      shootSound.play();
+      projectiles.push({ x: ninja.x + 17, y: ninja.y });
+    }
+
+    function spawnObstacle() {
+      const x = Math.random() * 370;
+      obstacles.push({ x: x, y: -30 });
+    }
+
+    function updateHUD() {
+      levelDisplay.textContent = level;
+      livesDisplay.textContent = ninja.lives;
+      destroyedDisplay.textContent = destroyed;
+    }
+
+    function updateGame() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawNinja();
+      updateHUD();
+
+      // Update and draw projectiles
+      for (let i = 0; i < projectiles.length; i++) {
+        projectiles[i].y -= 8;
+        drawProjectile(projectiles[i]);
+      }
+      projectiles = projectiles.filter(p => p.y > -20);
+
+      // Update and draw obstacles
+      for (let i = 0; i < obstacles.length; i++) {
+        obstacles[i].y += 4 + level;
+        drawObstacle(obstacles[i]);
+
+        // Check collision with ninja
+        if (
+          obstacles[i].x < ninja.x + ninja.width &&
+          obstacles[i].x + 30 > ninja.x &&
+          obstacles[i].y < ninja.y + ninja.height &&
+          obstacles[i].y + 30 > ninja.y
+        ) {
+          obstacles.splice(i, 1);
+          ninja.hitCount++;
+          if (ninja.hitCount >= 5) {
+            ninja.lives--;
+            ninja.hitCount = 0;
+            if (ninja.lives <= 0) {
+              gameOverSound.play();
+              gameOver = true;
+              alert("Game Over!");
+              return;
+            }
+          }
+        }
+
+        // Check collision with projectile
+        for (let j = 0; j < projectiles.length; j++) {
+          if (
+            obstacles[i] &&
+            projectiles[j].x < obstacles[i].x + 30 &&
+            projectiles[j].x + 5 > obstacles[i].x &&
+            projectiles[j].y < obstacles[i].y + 30 &&
+            projectiles[j].y + 15 > obstacles[i].y
+          ) {
+            hitSound.currentTime = 0;
+            hitSound.play();
+            obstacles.splice(i, 1);
+            projectiles.splice(j, 1);
+            destroyed++;
+            if (destroyed >= 10) {
+              level++;
+              ninja.colorIndex = Math.min(level - 1, ninjaColors.length - 1);
+              destroyed = 0;
+              alert("Level Up!");
+            }
+            break;
+          }
+        }
+      }
+
+      requestAnimationFrame(updateGame);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" && ninja.x > 0) ninja.x -= 20;
+      if (e.key === "ArrowRight" && ninja.x < canvas.width - ninja.width) ninja.x += 20;
+      if (e.key === " ") fireProjectile();
+    });
+
+    setInterval(spawnObstacle, 800);
+    updateGame();
+  </script>
+</body>
+</html>
